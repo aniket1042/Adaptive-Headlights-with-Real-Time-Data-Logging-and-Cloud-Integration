@@ -584,7 +584,7 @@ void servo_sweep(void)
 	}
 	else if (steer_angle < -5)
 	{
-	    servo_write(-steer_angle);
+	    servo_write(90+steer_angle);
 	    	    ind=RIGHT;
 	    HAL_GPIO_WritePin(GPIOD,LEFT_Pin, RESET);
 	    HAL_GPIO_WritePin(GPIOD,RIGHT_Pin, SET);
