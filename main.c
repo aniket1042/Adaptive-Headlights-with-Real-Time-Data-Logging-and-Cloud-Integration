@@ -40,28 +40,52 @@
 /* USER CODE BEGIN PM */
 
 
+#define UPPER    85    //ascii values
+#define DIPPER   68
+#define STRAIGHT 83
+#define LEFT     76
+#define RIGHT    82
+
 
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
 
 SPI_HandleTypeDef hspi1;
 
+TIM_HandleTypeDef htim1;
+
 /* USER CODE BEGIN PV */
+
+
+
+/*    SERVO PART & LDR    */
 
 uint8_t txbuffer[2];
 uint8_t RX_x;
+int8_t steer_tilt_x;
+int8_t steer_angle;
+uint16_t ldr;
+uint8_t status ;
+uint8_t ind;
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_ADC1_Init(void);
 static void MX_SPI1_Init(void);
-
+static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 
+void CAN_filterConfig();
 void SERVO();
+void LDR();
+void servo_write(int);
+void servo_sweep(void);
+int map(int);
 
 /* USER CODE END PFP */
 
@@ -84,7 +108,7 @@ int main(void)
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-        HAL_Init();
+  HAL_Init();
 
   /* USER CODE BEGIN Init */
 
@@ -112,7 +136,7 @@ int main(void)
      HAL_SPI_Transmit(&hspi1, txbuffer, 2, 50);
      HAL_GPIO_WritePin(GPIOE, SPI1_CS_Pin, 1); // CS Pulled High
 
-      
+    
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -122,11 +146,9 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
 	  	SERVO();
+	 	LDR();
 	 	
-
-
 	 	 HAL_Delay(100);
   }
   /* USER CODE END 3 */
@@ -434,7 +456,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(SPI1_CS_GPIO_Port, SPI1_CS_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOD, RIGHT_Pin|DIPPER_Pin|LEFT_Pin|UPPER_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : SPI1_CS_Pin */
   GPIO_InitStruct.Pin = SPI1_CS_Pin;
@@ -443,8 +465,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(SPI1_CS_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PD12 PD13 PD14 PD15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15;
+  /*Configure GPIO pins : RIGHT_Pin DIPPER_Pin LEFT_Pin UPPER_Pin */
+  GPIO_InitStruct.Pin = RIGHT_Pin|DIPPER_Pin|LEFT_Pin|UPPER_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -465,9 +487,78 @@ void SERVO()
 		  	HAL_SPI_Transmit(&hspi1, txbuffer, 1, 50); // Transmit Data
 		  	HAL_SPI_Receive(&hspi1, &RX_x, 1, 50); // Receive Data
 		  	HAL_GPIO_WritePin(GPIOE, SPI1_CS_Pin, 1); // CS Pulled High
-		  	
+		  	servo_sweep();
 }
 
+void servo_sweep(void)
+{
+	if(RX_x>150)
+	{
+		steer_tilt_x = -(~RX_x+1);     //converting into original values of accelerometer if turned left
+	}
+	else
+	{
+		steer_tilt_x=RX_x;		//original value in case of right rotation
+	}
+
+	steer_angle = steer_tilt_x * 1.3;	   //for correct angles
+	if (steer_angle >= -5 && steer_angle <= 5)  // stationary
+	{
+	    servo_write(90);
+	    ind=STRAIGHT;
+	    HAL_GPIO_WritePin(GPIOD,LEFT_Pin, RESET);
+	    HAL_GPIO_WritePin(GPIOD,RIGHT_Pin, RESET);
+	}
+	else if (steer_angle > 5)		// left rotation
+	{
+		 servo_write(90 +  steer_angle);
+			    ind=LEFT;
+		HAL_GPIO_WritePin(GPIOD,LEFT_Pin, SET);
+		HAL_GPIO_WritePin(GPIOD,RIGHT_Pin, RESET);
+	}
+	else if (steer_angle < -5)		//right rotation
+	{
+	    servo_write(-steer_angle);
+	    	    ind=RIGHT;
+	    HAL_GPIO_WritePin(GPIOD,LEFT_Pin, RESET);
+	    HAL_GPIO_WritePin(GPIOD,RIGHT_Pin, SET);
+	}
+
+}
+
+void servo_write(int angle)
+{
+	htim1.Instance->CCR1 = map(angle);
+}
+
+int map(int value)
+{
+    return (50+(value*200)/180);  //gets correct pulse according to angles
+}
+
+
+
+void LDR()
+{
+	HAL_ADC_Start(&hadc1);
+	ldr=HAL_ADC_GetValue(&hadc1);
+	if(ldr>4000)			//in cace of no light
+	{
+		status=UPPER;
+		HAL_GPIO_WritePin(GPIOD,UPPER_Pin,SET);
+		HAL_GPIO_WritePin(GPIOD,DIPPER_Pin,RESET);
+
+	}
+	else if(ldr>150 && ldr<250)    // in case of light
+	{
+		status=DIPPER;
+		HAL_GPIO_WritePin(GPIOD,UPPER_Pin,RESET);
+		HAL_GPIO_WritePin(GPIOD,DIPPER_Pin,SET);
+	}
+}
+
+
+}
 
 
 
