@@ -730,16 +730,16 @@ void data_logging_write(const sensorStruct signals)
     read_counter=read_packet_no*OFFSET; //0*16    //FIFO
 
     high_byte =    ((data[read_counter] & 0x00FF) << 8);    // dividing into 8 bits
-	read_counter++;
+	  read_counter++;
     low_byte =    data[read_counter]& 0x00FF;
 
-    read_struct.LDR=     (high_byte | low_byte);			// combining to get original value
+    read_struct.LDR=  (high_byte | low_byte);			// combining to get original value
     read_counter++;
-    read_struct.SMA=    (uint8_t)data[read_counter];
+    read_struct.SMA=  (uint8_t)data[read_counter];
     read_counter++;
-	read_struct.SOL=	(uint8_t)data[read_counter];
-	read_counter++;
-	read_struct.IND=    (uint8_t)data[read_counter];
+	  read_struct.SOL=	(uint8_t)data[read_counter];
+	  read_counter++;
+	  read_struct.IND=  (uint8_t)data[read_counter];
 
     read_packet_no++;
 
